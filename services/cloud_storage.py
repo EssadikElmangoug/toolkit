@@ -126,6 +126,10 @@ def save_file_locally(file_path: str, local_storage_dir: str = None) -> str:
             if save_location:
                 local_storage_dir = save_location
                 logger.info(f"Using SAVE_LOCATION environment variable: {local_storage_dir}")
+                logger.info(f"Current user: {os.getuid()}:{os.getgid()}")
+                logger.info(f"Directory exists: {os.path.exists(local_storage_dir)}")
+                if os.path.exists(local_storage_dir):
+                    logger.info(f"Directory writable: {os.access(local_storage_dir, os.W_OK)}")
             else:
                 # Check if we're in Docker with volume mount
                 docker_storage = "/var/www/html/storage/app"
@@ -138,7 +142,12 @@ def save_file_locally(file_path: str, local_storage_dir: str = None) -> str:
                     logger.info("Using app directory for storage")
         
         # Create local storage directory if it doesn't exist
-        os.makedirs(local_storage_dir, exist_ok=True)
+        try:
+            os.makedirs(local_storage_dir, exist_ok=True)
+        except PermissionError as e:
+            logger.error(f"Permission denied creating directory {local_storage_dir}: {e}")
+            logger.error("Please ensure the container has write permissions to the mounted directory")
+            raise PermissionError(f"Cannot create storage directory {local_storage_dir}. Please check permissions.")
         
         # Generate a unique filename with timestamp to avoid conflicts
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
