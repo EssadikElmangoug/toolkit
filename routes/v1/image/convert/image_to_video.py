@@ -70,7 +70,7 @@ def force_queue_task(f):
                 response = f(job_id=job_id, data=data, *args, **kwargs)
                 run_time = time.time() - start_time
                 
-                # Create response data
+                # Create response data with the actual response from the function
                 response_data = {
                     "endpoint": response[1],
                     "code": response[2],
@@ -86,6 +86,13 @@ def force_queue_task(f):
                     "queue_length": task_queue.qsize(),
                     "build_number": "1.0.0"
                 }
+                
+                # If the response contains filename data, add it to the top level for easier access
+                if response[2] == 200 and isinstance(response[0], dict):
+                    if "filename" in response[0]:
+                        response_data["filename"] = response[0]["filename"]
+                        response_data["download_url"] = response[0].get("download_url", "")
+                        logger.info(f"Job {job_id}: Added filename to response: {response[0]['filename']}")
                 
                 # Log job status as done
                 log_job_status(job_id, {

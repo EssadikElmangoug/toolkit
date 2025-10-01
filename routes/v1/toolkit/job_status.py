@@ -61,32 +61,44 @@ def get_job_status(job_id, data):
         if job_status.get("job_status") == "done" and job_status.get("response"):
             response_data = job_status.get("response", {})
             
-            # Navigate through nested response structure to find the actual response
-            actual_response = response_data
-            while isinstance(actual_response, dict) and "response" in actual_response:
-                if isinstance(actual_response["response"], dict):
-                    actual_response = actual_response["response"]
-                else:
-                    break
-            
-            # Check if we found the actual response with filename
-            if isinstance(actual_response, dict) and "filename" in actual_response:
-                # Add download URL to the response
-                filename = actual_response["filename"]
+            # First check if filename is already at the top level
+            if "filename" in response_data:
+                filename = response_data["filename"]
                 base_url = os.getenv('API_BASE_URL', 'http://localhost:8080')
                 download_url = f"{base_url}/v1/storage/download/{filename}"
-                actual_response["download_url"] = download_url
                 
-                # Also add filename and download_url to the top level for easier access
+                # Add to top level for easier access
                 job_status["filename"] = filename
                 job_status["download_url"] = download_url
                 
-                # Update the job status with the enhanced response
-                job_status["response"] = response_data
-                
-                logger.info(f"Job {get_job_id}: Enhanced response with filename: {filename}")
+                logger.info(f"Job {get_job_id}: Found filename at top level: {filename}")
             else:
-                logger.warning(f"Job {get_job_id}: No filename found in response structure")
+                # Navigate through nested response structure to find the actual response
+                actual_response = response_data
+                while isinstance(actual_response, dict) and "response" in actual_response:
+                    if isinstance(actual_response["response"], dict):
+                        actual_response = actual_response["response"]
+                    else:
+                        break
+                
+                # Check if we found the actual response with filename
+                if isinstance(actual_response, dict) and "filename" in actual_response:
+                    # Add download URL to the response
+                    filename = actual_response["filename"]
+                    base_url = os.getenv('API_BASE_URL', 'http://localhost:8080')
+                    download_url = f"{base_url}/v1/storage/download/{filename}"
+                    actual_response["download_url"] = download_url
+                    
+                    # Also add filename and download_url to the top level for easier access
+                    job_status["filename"] = filename
+                    job_status["download_url"] = download_url
+                    
+                    # Update the job status with the enhanced response
+                    job_status["response"] = response_data
+                    
+                    logger.info(f"Job {get_job_id}: Enhanced response with filename from nested structure: {filename}")
+                else:
+                    logger.warning(f"Job {get_job_id}: No filename found in response structure")
         
         # Return the job status file content directly
         return job_status, "/v1/toolkit/job/status", 200
