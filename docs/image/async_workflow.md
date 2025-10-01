@@ -28,7 +28,7 @@ Submit your image-to-video conversion request. The system will return a job ID i
 
 ```json
 {
-  "code": 200,
+  "code": 202,
   "id": null,
   "job_id": "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6",
   "response": null,
@@ -152,6 +152,7 @@ curl -X POST \
 **Response:**
 ```json
 {
+  "code": 202,
   "job_id": "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6",
   "message": "Job queued successfully"
 }

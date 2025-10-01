@@ -16,16 +16,57 @@
 
 
 
-from flask import Blueprint
+from flask import Blueprint, request, current_app
 from app_utils import *
 import logging
 import os
+import time
+import uuid
 from services.v1.image.convert.image_to_video import process_image_to_video
 from services.authentication import authenticate
 from services.cloud_storage import upload_file
 
 v1_image_convert_video_bp = Blueprint('v1_image_convert_video', __name__)
 logger = logging.getLogger(__name__)
+
+def force_queue_task(f):
+    """Custom decorator that forces jobs to be queued instead of executed immediately"""
+    def wrapper(*args, **kwargs):
+        job_id = str(uuid.uuid4())
+        data = request.json if request.is_json else {}
+        pid = os.getpid()
+        start_time = time.time()
+        
+        # Always queue the job by ensuring webhook_url exists
+        if 'webhook_url' not in data:
+            data['webhook_url'] = ""
+        
+        # Get the queue from the app
+        task_queue = current_app.task_queue
+        
+        # Log job status as queued
+        log_job_status(job_id, {
+            "job_status": "queued",
+            "job_id": job_id,
+            "queue_id": current_app.queue_id,
+            "process_id": pid,
+            "response": None
+        })
+        
+        # Add to queue
+        task_queue.put((job_id, data, lambda: f(job_id=job_id, data=data, *args, **kwargs), start_time))
+        
+        return {
+            "code": 202,
+            "id": data.get("id"),
+            "job_id": job_id,
+            "message": "Job queued successfully",
+            "pid": pid,
+            "queue_id": current_app.queue_id,
+            "queue_length": task_queue.qsize(),
+            "build_number": "1.0.0"
+        }, 202
+    return wrapper
 
 @v1_image_convert_video_bp.route('/v1/image/convert/video', methods=['POST'])
 @v1_image_convert_video_bp.route('/v1/image/transform/video', methods=['POST']) #depleft for backwards compatibility, do not use.
@@ -43,7 +84,7 @@ logger = logging.getLogger(__name__)
     "required": ["image_url"],
     "additionalProperties": False
 })
-@queue_task_wrapper(bypass_queue=False)
+@force_queue_task
 def image_to_video(job_id, data):
     image_url = data.get('image_url')
     length = data.get('length', 5)
