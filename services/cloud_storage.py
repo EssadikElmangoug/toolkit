@@ -179,16 +179,85 @@ def save_file_locally(file_path: str, local_storage_dir: str = None) -> str:
         logger.error(f"Error saving file locally: {e}")
         raise
 
+def save_file_locally_direct(file_path: str, target_filename: str, local_storage_dir: str = None) -> str:
+    """
+    Save a file locally with a specific filename (for job ID files).
+    
+    Args:
+        file_path: Path to the source file to save
+        target_filename: The exact filename to use for the saved file
+        local_storage_dir: Directory to save files locally (default: from SAVE_LOCATION env var or auto-detect)
+    
+    Returns:
+        str: Path to the saved file
+    """
+    try:
+        # Determine the best storage location based on environment
+        if local_storage_dir is None:
+            # First check for SAVE_LOCATION environment variable
+            save_location = os.getenv('SAVE_LOCATION')
+            if save_location:
+                local_storage_dir = save_location
+                logger.info(f"Using SAVE_LOCATION environment variable: {local_storage_dir}")
+                logger.info(f"Current user: {os.getuid()}:{os.getgid()}")
+                logger.info(f"Directory exists: {os.path.exists(local_storage_dir)}")
+                if os.path.exists(local_storage_dir):
+                    logger.info(f"Directory writable: {os.access(local_storage_dir, os.W_OK)}")
+            else:
+                # Check if we're in Docker with volume mount
+                docker_storage = "/var/www/html/storage/app"
+                if os.path.exists(docker_storage) and os.access(docker_storage, os.W_OK):
+                    local_storage_dir = docker_storage
+                    logger.info("Using Docker volume mount for storage")
+                else:
+                    # Fallback to app directory storage
+                    local_storage_dir = "/app/storage"
+                    logger.info("Using app directory for storage")
+        
+        # Create local storage directory if it doesn't exist
+        try:
+            os.makedirs(local_storage_dir, exist_ok=True)
+        except PermissionError as e:
+            logger.error(f"Permission denied creating directory {local_storage_dir}: {e}")
+            logger.error("Please ensure the container has write permissions to the mounted directory")
+            raise PermissionError(f"Cannot create storage directory {local_storage_dir}. Please check permissions.")
+        
+        # Create the destination path with the exact filename
+        destination_path = os.path.join(local_storage_dir, target_filename)
+        
+        logger.info(f"Saving file locally: {file_path} -> {destination_path}")
+        
+        # Copy the file to the local storage directory
+        shutil.copy2(file_path, destination_path)
+        
+        logger.info(f"File saved successfully locally: {destination_path}")
+        return destination_path
+        
+    except Exception as e:
+        logger.error(f"Error saving file locally: {e}")
+        raise
+
 def upload_file(file_path: str) -> str:
     """
     Legacy function name - now saves files locally instead of uploading to cloud.
     This maintains backward compatibility while changing the behavior.
     Returns a download URL for the saved file.
     """
-    saved_path = save_file_locally(file_path)
+    # Check if the file is already named with a job ID (UUID pattern)
+    original_filename = os.path.basename(file_path)
+    name, ext = os.path.splitext(original_filename)
     
-    # Extract just the filename from the saved path
-    filename = os.path.basename(saved_path)
+    import re
+    uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    
+    if re.match(uuid_pattern, name):
+        # If it's already a job ID, save it directly without renaming
+        saved_path = save_file_locally_direct(file_path, original_filename)
+        filename = original_filename
+    else:
+        # Otherwise, use the normal save logic with timestamp
+        saved_path = save_file_locally(file_path)
+        filename = os.path.basename(saved_path)
     
     # Return a download URL
     # Note: This assumes the API is running on the same host
