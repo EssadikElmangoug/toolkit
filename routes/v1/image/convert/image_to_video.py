@@ -19,6 +19,7 @@
 from flask import Blueprint
 from app_utils import *
 import logging
+import os
 from services.v1.image.convert.image_to_video import process_image_to_video
 from services.authentication import authenticate
 from services.cloud_storage import upload_file
@@ -61,12 +62,22 @@ def image_to_video(job_id, data):
 
         # Upload the resulting file using the unified upload_file() method
         cloud_url = upload_file(output_filename)
+        
+        # Extract filename for download
+        filename = os.path.basename(output_filename)
 
         # Log the successful upload
         logger.info(f"Job {job_id}: Converted video uploaded to cloud storage: {cloud_url}")
+        logger.info(f"Job {job_id}: Filename for download: {filename}")
 
-        # Return the cloud URL for the uploaded file
-        return cloud_url, "/v1/image/convert/video", 200
+        # Return both cloud URL and filename for download
+        response_data = {
+            "download_url": cloud_url,
+            "filename": filename,
+            "message": "Video conversion completed successfully"
+        }
+        
+        return response_data, "/v1/image/convert/video", 200
         
     except Exception as e:
         logger.error(f"Job {job_id}: Error processing image to video: {str(e)}", exc_info=True)

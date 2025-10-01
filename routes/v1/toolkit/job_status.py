@@ -51,15 +51,26 @@ def get_job_status(job_id, data):
         
         # Check if the job file exists
         if not os.path.exists(job_file_path):
-            return {"error": "Job not found", "job_id": get_job_id}, endpoint, 404
+            return {"error": "Job not found", "job_id": get_job_id}, "/v1/toolkit/job/status", 404
         
         # Read the job status file
         with open(job_file_path, 'r') as file:
             job_status = json.load(file)
+        
+        # Enhance the response with download information if job is completed
+        if job_status.get("job_status") == "done" and job_status.get("response"):
+            response_data = job_status.get("response", {})
+            if isinstance(response_data, dict) and "filename" in response_data:
+                # Add download URL to the response
+                filename = response_data["filename"]
+                base_url = os.getenv('API_BASE_URL', 'http://localhost:8080')
+                download_url = f"{base_url}/v1/storage/download/{filename}"
+                response_data["download_url"] = download_url
+                job_status["response"] = response_data
         
         # Return the job status file content directly
         return job_status, "/v1/toolkit/job/status", 200
         
     except Exception as e:
         logger.error(f"Error retrieving status for job {get_job_id}: {str(e)}")
-        return {"error": f"Failed to retrieve job status: {str(e)}"}, endpoint, 500 
+        return {"error": f"Failed to retrieve job status: {str(e)}"}, "/v1/toolkit/job/status", 500 
