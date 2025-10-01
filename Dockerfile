@@ -188,8 +188,8 @@ RUN useradd -m appuser
 # Give appuser ownership of the /app directory (including whisper_cache and storage)
 RUN chown -R appuser:appuser /app && \
     chown -R appuser:appuser /var/www/html/storage && \
-    mkdir -p /vps-home && \
-    chown -R appuser:appuser /vps-home 
+    mkdir -p /vps-storage && \
+    chown -R appuser:appuser /vps-storage 
 
 # Important: Switch to the appuser before downloading the model
 USER appuser
