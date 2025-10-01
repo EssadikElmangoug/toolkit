@@ -28,12 +28,13 @@ logger = logging.getLogger(__name__)
 @v1_storage_download_bp.route('/v1/storage/download/<path:filename>', methods=['GET'])
 @authenticate
 @queue_task_wrapper(bypass_queue=True)
-def download_file(job_id, filename):
+def download_file(job_id, data=None, filename=None):
     """
     Download a file from local storage with API authentication.
     
     Args:
         job_id (str): Job ID assigned by queue_task_wrapper
+        data (dict): Request data (not used for GET requests)
         filename (str): The filename to download (URL decoded)
     
     Returns:
@@ -96,12 +97,13 @@ def download_file(job_id, filename):
 @v1_storage_download_bp.route('/v1/storage/list', methods=['GET'])
 @authenticate
 @queue_task_wrapper(bypass_queue=True)
-def list_files(job_id):
+def list_files(job_id, data=None):
     """
     List all files in the storage directory with API authentication.
     
     Args:
         job_id (str): Job ID assigned by queue_task_wrapper
+        data (dict): Request data (not used for GET requests)
     
     Returns:
         List of files with metadata
