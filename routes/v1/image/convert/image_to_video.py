@@ -37,24 +37,80 @@ def force_queue_task(f):
         pid = os.getpid()
         start_time = time.time()
         
-        # Always queue the job by ensuring webhook_url exists
+        # Always queue the job by ensuring webhook_url exists (even if empty)
         if 'webhook_url' not in data:
             data['webhook_url'] = ""
         
         # Get the queue from the app
         task_queue = current_app.task_queue
+        queue_id = current_app.queue_id
         
         # Log job status as queued
         log_job_status(job_id, {
             "job_status": "queued",
             "job_id": job_id,
-            "queue_id": current_app.queue_id,
+            "queue_id": queue_id,
             "process_id": pid,
             "response": None
         })
         
+        # Create a wrapper function that properly handles the response
+        def task_wrapper():
+            try:
+                # Log job status as running
+                log_job_status(job_id, {
+                    "job_status": "running",
+                    "job_id": job_id,
+                    "queue_id": queue_id,
+                    "process_id": pid,
+                    "response": None
+                })
+                
+                # Execute the actual function
+                response = f(job_id=job_id, data=data, *args, **kwargs)
+                run_time = time.time() - start_time
+                
+                # Create response data
+                response_data = {
+                    "endpoint": response[1],
+                    "code": response[2],
+                    "id": data.get("id"),
+                    "job_id": job_id,
+                    "response": response[0] if response[2] == 200 else None,
+                    "message": "success" if response[2] == 200 else response[0],
+                    "pid": pid,
+                    "queue_id": queue_id,
+                    "run_time": round(run_time, 3),
+                    "queue_time": 0,
+                    "total_time": round(run_time, 3),
+                    "queue_length": task_queue.qsize(),
+                    "build_number": "1.0.0"
+                }
+                
+                # Log job status as done
+                log_job_status(job_id, {
+                    "job_status": "done",
+                    "job_id": job_id,
+                    "queue_id": queue_id,
+                    "process_id": pid,
+                    "response": response_data
+                })
+                
+                return response
+                
+            except Exception as e:
+                # Log job status as error
+                log_job_status(job_id, {
+                    "job_status": "error",
+                    "job_id": job_id,
+                    "queue_id": queue_id,
+                    "process_id": pid,
+                    "response": {"error": str(e)}
+                })
+                raise
+        
         # Add to queue
-        task_queue.put((job_id, data, lambda: f(job_id=job_id, data=data, *args, **kwargs), start_time))
+        task_queue.put((job_id, data, task_wrapper, start_time))
         
         return {
             "code": 202,
@@ -62,7 +118,7 @@ def force_queue_task(f):
             "job_id": job_id,
             "message": "Job queued successfully",
             "pid": pid,
-            "queue_id": current_app.queue_id,
+            "queue_id": queue_id,
             "queue_length": task_queue.qsize(),
             "build_number": "1.0.0"
         }, 202
