@@ -149,11 +149,20 @@ def save_file_locally(file_path: str, local_storage_dir: str = None) -> str:
             logger.error("Please ensure the container has write permissions to the mounted directory")
             raise PermissionError(f"Cannot create storage directory {local_storage_dir}. Please check permissions.")
         
-        # Generate a unique filename with timestamp to avoid conflicts
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Use job ID as filename if available, otherwise use original filename
         filename = os.path.basename(file_path)
         name, ext = os.path.splitext(filename)
-        unique_filename = f"{name}_{timestamp}{ext}"
+        
+        # Check if the filename starts with a UUID pattern (job ID)
+        import re
+        uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        if re.match(uuid_pattern, name):
+            # If it's a job ID, use it directly as filename
+            unique_filename = f"{name}{ext}"
+        else:
+            # Otherwise, generate a unique filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            unique_filename = f"{name}_{timestamp}{ext}"
         
         # Create the destination path
         destination_path = os.path.join(local_storage_dir, unique_filename)

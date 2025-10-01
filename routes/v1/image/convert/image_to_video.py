@@ -70,29 +70,11 @@ def force_queue_task(f):
                 response = f(job_id=job_id, data=data, *args, **kwargs)
                 run_time = time.time() - start_time
                 
-                # Create response data with the actual response from the function
+                # Create simplified response data
                 response_data = {
-                    "endpoint": response[1],
-                    "code": response[2],
-                    "id": data.get("id"),
                     "job_id": job_id,
-                    "response": response[0] if response[2] == 200 else None,
-                    "message": "success" if response[2] == 200 else response[0],
-                    "pid": pid,
-                    "queue_id": queue_id,
-                    "run_time": round(run_time, 3),
-                    "queue_time": 0,
-                    "total_time": round(run_time, 3),
-                    "queue_length": task_queue.qsize(),
-                    "build_number": "1.0.0"
+                    "message": "Video conversion completed successfully" if response[2] == 200 else "Video conversion failed"
                 }
-                
-                # If the response contains filename data, add it to the top level for easier access
-                if response[2] == 200 and isinstance(response[0], dict):
-                    if "filename" in response[0]:
-                        response_data["filename"] = response[0]["filename"]
-                        response_data["download_url"] = response[0].get("download_url", "")
-                        logger.info(f"Job {job_id}: Added filename to response: {response[0]['filename']}")
                 
                 # Log job status as done
                 log_job_status(job_id, {
@@ -120,14 +102,8 @@ def force_queue_task(f):
         task_queue.put((job_id, data, task_wrapper, start_time))
         
         return {
-            "code": 202,
-            "id": data.get("id"),
             "job_id": job_id,
-            "message": "Job queued successfully",
-            "pid": pid,
-            "queue_id": queue_id,
-            "queue_length": task_queue.qsize(),
-            "build_number": "1.0.0"
+            "message": "Job queued successfully"
         }, 202
     return wrapper
 

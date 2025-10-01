@@ -57,51 +57,38 @@ def get_job_status(job_id, data):
         with open(job_file_path, 'r') as file:
             job_status = json.load(file)
         
-        # Enhance the response with download information if job is completed
-        if job_status.get("job_status") == "done" and job_status.get("response"):
-            response_data = job_status.get("response", {})
-            
-            # First check if filename is already at the top level
-            if "filename" in response_data:
-                filename = response_data["filename"]
-                base_url = os.getenv('API_BASE_URL', 'http://localhost:8080')
-                download_url = f"{base_url}/v1/storage/download/{filename}"
-                
-                # Add to top level for easier access
-                job_status["filename"] = filename
-                job_status["download_url"] = download_url
-                
-                logger.info(f"Job {get_job_id}: Found filename at top level: {filename}")
-            else:
-                # Navigate through nested response structure to find the actual response
-                actual_response = response_data
-                while isinstance(actual_response, dict) and "response" in actual_response:
-                    if isinstance(actual_response["response"], dict):
-                        actual_response = actual_response["response"]
-                    else:
-                        break
-                
-                # Check if we found the actual response with filename
-                if isinstance(actual_response, dict) and "filename" in actual_response:
-                    # Add download URL to the response
-                    filename = actual_response["filename"]
-                    base_url = os.getenv('API_BASE_URL', 'http://localhost:8080')
-                    download_url = f"{base_url}/v1/storage/download/{filename}"
-                    actual_response["download_url"] = download_url
-                    
-                    # Also add filename and download_url to the top level for easier access
-                    job_status["filename"] = filename
-                    job_status["download_url"] = download_url
-                    
-                    # Update the job status with the enhanced response
-                    job_status["response"] = response_data
-                    
-                    logger.info(f"Job {get_job_id}: Enhanced response with filename from nested structure: {filename}")
-                else:
-                    logger.warning(f"Job {get_job_id}: No filename found in response structure")
-        
-        # Return the job status file content directly
-        return job_status, "/v1/toolkit/job/status", 200
+        # Return simplified response
+        if job_status.get("job_status") == "done":
+            return {
+                "job_id": get_job_id,
+                "status": "completed",
+                "message": "Video conversion completed successfully",
+                "filename": f"{get_job_id}.mp4"
+            }, "/v1/toolkit/job/status", 200
+        elif job_status.get("job_status") == "running":
+            return {
+                "job_id": get_job_id,
+                "status": "processing",
+                "message": "Video conversion in progress"
+            }, "/v1/toolkit/job/status", 200
+        elif job_status.get("job_status") == "queued":
+            return {
+                "job_id": get_job_id,
+                "status": "queued",
+                "message": "Job is queued for processing"
+            }, "/v1/toolkit/job/status", 200
+        elif job_status.get("job_status") == "error":
+            return {
+                "job_id": get_job_id,
+                "status": "error",
+                "message": "Video conversion failed"
+            }, "/v1/toolkit/job/status", 200
+        else:
+            return {
+                "job_id": get_job_id,
+                "status": "unknown",
+                "message": "Unknown job status"
+            }, "/v1/toolkit/job/status", 200
         
     except Exception as e:
         logger.error(f"Error retrieving status for job {get_job_id}: {str(e)}")
