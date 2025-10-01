@@ -143,8 +143,8 @@ def image_to_video(job_id, data):
         # Upload the resulting file using the unified upload_file() method
         cloud_url = upload_file(output_filename)
         
-        # Extract filename for download
-        filename = os.path.basename(output_filename)
+        # Use job ID as filename (should match the saved file)
+        filename = f"{job_id}.mp4"
 
         # Log the successful upload
         logger.info(f"Job {job_id}: Converted video uploaded to cloud storage: {cloud_url}")
