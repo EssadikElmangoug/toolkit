@@ -60,13 +60,33 @@ def get_job_status(job_id, data):
         # Enhance the response with download information if job is completed
         if job_status.get("job_status") == "done" and job_status.get("response"):
             response_data = job_status.get("response", {})
-            if isinstance(response_data, dict) and "filename" in response_data:
+            
+            # Navigate through nested response structure to find the actual response
+            actual_response = response_data
+            while isinstance(actual_response, dict) and "response" in actual_response:
+                if isinstance(actual_response["response"], dict):
+                    actual_response = actual_response["response"]
+                else:
+                    break
+            
+            # Check if we found the actual response with filename
+            if isinstance(actual_response, dict) and "filename" in actual_response:
                 # Add download URL to the response
-                filename = response_data["filename"]
+                filename = actual_response["filename"]
                 base_url = os.getenv('API_BASE_URL', 'http://localhost:8080')
                 download_url = f"{base_url}/v1/storage/download/{filename}"
-                response_data["download_url"] = download_url
+                actual_response["download_url"] = download_url
+                
+                # Also add filename and download_url to the top level for easier access
+                job_status["filename"] = filename
+                job_status["download_url"] = download_url
+                
+                # Update the job status with the enhanced response
                 job_status["response"] = response_data
+                
+                logger.info(f"Job {get_job_id}: Enhanced response with filename: {filename}")
+            else:
+                logger.warning(f"Job {get_job_id}: No filename found in response structure")
         
         # Return the job status file content directly
         return job_status, "/v1/toolkit/job/status", 200
