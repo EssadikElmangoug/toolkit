@@ -188,6 +188,8 @@ def create_app():
         return decorator
 
     app.queue_task = queue_task
+    app.task_queue = task_queue
+    app.queue_id = queue_id
 
     # Register special route for Next.js root asset paths first
     from routes.v1.media.feedback import create_root_next_routes
