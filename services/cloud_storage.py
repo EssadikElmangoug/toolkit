@@ -165,6 +165,19 @@ def upload_file(file_path: str) -> str:
     """
     Legacy function name - now saves files locally instead of uploading to cloud.
     This maintains backward compatibility while changing the behavior.
+    Returns a download URL for the saved file.
     """
-    return save_file_locally(file_path)
+    saved_path = save_file_locally(file_path)
+    
+    # Extract just the filename from the saved path
+    filename = os.path.basename(saved_path)
+    
+    # Return a download URL
+    # Note: This assumes the API is running on the same host
+    # In production, you might want to use a proper domain
+    base_url = os.getenv('API_BASE_URL', 'http://localhost:8080')
+    download_url = f"{base_url}/v1/storage/download/{filename}"
+    
+    logger.info(f"Generated download URL: {download_url}")
+    return download_url
     

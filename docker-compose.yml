@@ -27,6 +27,8 @@ services:
     environment:
       # Optional: Override default storage location
       # - SAVE_LOCATION=/custom/path/to/storage
+      # API base URL for generating download URLs
+      - API_BASE_URL=https://${APP_DOMAIN}
     labels:
       - traefik.enable=true
       - traefik.http.routers.ncat.rule=Host(`${APP_DOMAIN}`)
