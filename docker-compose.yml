@@ -24,6 +24,9 @@ services:
     image: stephengpope/no-code-architects-toolkit:latest
     env_file:
       - .env
+    environment:
+      # Optional: Override default storage location
+      # - SAVE_LOCATION=/custom/path/to/storage
     labels:
       - traefik.enable=true
       - traefik.http.routers.ncat.rule=Host(`${APP_DOMAIN}`)
@@ -33,6 +36,8 @@ services:
     volumes:
       - storage:/var/www/html/storage/app
       - logs:/var/www/html/storage/logs
+      # Optional: Mount custom storage location
+      # - /host/path/to/storage:/custom/path/to/storage
     restart: unless-stopped
 
 volumes:

@@ -167,8 +167,10 @@ WORKDIR /app
 # Set environment variable for Whisper cache
 ENV WHISPER_CACHE_DIR="/app/whisper_cache"
 
-# Create cache directory (no need for chown here yet)
-RUN mkdir -p ${WHISPER_CACHE_DIR} 
+# Create cache directory and storage directory (no need for chown here yet)
+RUN mkdir -p ${WHISPER_CACHE_DIR} && \
+    mkdir -p /app/storage && \
+    mkdir -p /var/www/html/storage/app 
 
 # Copy the requirements file first to optimize caching
 COPY requirements.txt .
@@ -183,8 +185,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Create the appuser 
 RUN useradd -m appuser 
 
-# Give appuser ownership of the /app directory (including whisper_cache)
-RUN chown appuser:appuser /app 
+# Give appuser ownership of the /app directory (including whisper_cache and storage)
+RUN chown -R appuser:appuser /app && \
+    chown -R appuser:appuser /var/www/html/storage 
 
 # Important: Switch to the appuser before downloading the model
 USER appuser

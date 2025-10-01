@@ -18,6 +18,8 @@
 
 import os
 import logging
+import shutil
+from datetime import datetime
 from abc import ABC, abstractmethod
 from services.gcp_toolkit import upload_to_gcs
 from services.s3_toolkit import upload_to_s3
@@ -105,14 +107,64 @@ def get_storage_provider() -> CloudStorageProvider:
     
     raise ValueError(f"No cloud storage settings provided.")
 
-def upload_file(file_path: str) -> str:
-    provider = get_storage_provider()
+def save_file_locally(file_path: str, local_storage_dir: str = None) -> str:
+    """
+    Save a file locally instead of uploading to cloud storage.
+    
+    Args:
+        file_path: Path to the source file to save
+        local_storage_dir: Directory to save files locally (default: from SAVE_LOCATION env var or auto-detect)
+    
+    Returns:
+        str: Path to the saved file
+    """
     try:
-        logger.info(f"Uploading file to cloud storage: {file_path}")
-        url = provider.upload_file(file_path)
-        logger.info(f"File uploaded successfully: {url}")
-        return url
+        # Determine the best storage location based on environment
+        if local_storage_dir is None:
+            # First check for SAVE_LOCATION environment variable
+            save_location = os.getenv('SAVE_LOCATION')
+            if save_location:
+                local_storage_dir = save_location
+                logger.info(f"Using SAVE_LOCATION environment variable: {local_storage_dir}")
+            else:
+                # Check if we're in Docker with volume mount
+                docker_storage = "/var/www/html/storage/app"
+                if os.path.exists(docker_storage) and os.access(docker_storage, os.W_OK):
+                    local_storage_dir = docker_storage
+                    logger.info("Using Docker volume mount for storage")
+                else:
+                    # Fallback to app directory storage
+                    local_storage_dir = "/app/storage"
+                    logger.info("Using app directory for storage")
+        
+        # Create local storage directory if it doesn't exist
+        os.makedirs(local_storage_dir, exist_ok=True)
+        
+        # Generate a unique filename with timestamp to avoid conflicts
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = os.path.basename(file_path)
+        name, ext = os.path.splitext(filename)
+        unique_filename = f"{name}_{timestamp}{ext}"
+        
+        # Create the destination path
+        destination_path = os.path.join(local_storage_dir, unique_filename)
+        
+        logger.info(f"Saving file locally: {file_path} -> {destination_path}")
+        
+        # Copy the file to the local storage directory
+        shutil.copy2(file_path, destination_path)
+        
+        logger.info(f"File saved successfully locally: {destination_path}")
+        return destination_path
+        
     except Exception as e:
-        logger.error(f"Error uploading file to cloud storage: {e}")
+        logger.error(f"Error saving file locally: {e}")
         raise
+
+def upload_file(file_path: str) -> str:
+    """
+    Legacy function name - now saves files locally instead of uploading to cloud.
+    This maintains backward compatibility while changing the behavior.
+    """
+    return save_file_locally(file_path)
     
