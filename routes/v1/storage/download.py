@@ -27,14 +27,11 @@ logger = logging.getLogger(__name__)
 
 @v1_storage_download_bp.route('/v1/storage/download/<path:filename>', methods=['GET'])
 @authenticate
-@queue_task_wrapper(bypass_queue=True)
-def download_file(job_id, data=None, filename=None):
+def download_file(filename):
     """
     Download a file from local storage with API authentication.
     
     Args:
-        job_id (str): Job ID assigned by queue_task_wrapper
-        data (dict): Request data (not used for GET requests)
         filename (str): The filename to download (URL decoded)
     
     Returns:
@@ -60,17 +57,17 @@ def download_file(job_id, data=None, filename=None):
         # Construct the full file path
         file_path = os.path.join(storage_dir, decoded_filename)
         
-        logger.info(f"Job {job_id}: Download request for file: {file_path}")
+        logger.info(f"Download request for file: {file_path}")
         
         # Check if file exists
         if not os.path.exists(file_path):
-            logger.warning(f"Job {job_id}: File not found: {file_path}")
-            return {"error": "File not found"}, "/v1/storage/download", 404
+            logger.warning(f"File not found: {file_path}")
+            return jsonify({"error": "File not found"}), 404
         
         # Check if it's a file (not a directory)
         if not os.path.isfile(file_path):
-            logger.warning(f"Job {job_id}: Path is not a file: {file_path}")
-            return {"error": "Invalid file path"}, "/v1/storage/download", 400
+            logger.warning(f"Path is not a file: {file_path}")
+            return jsonify({"error": "Invalid file path"}), 400
         
         # Get MIME type
         mime_type, _ = mimetypes.guess_type(file_path)
@@ -80,7 +77,7 @@ def download_file(job_id, data=None, filename=None):
         # Get file size
         file_size = os.path.getsize(file_path)
         
-        logger.info(f"Job {job_id}: Serving file: {file_path} (size: {file_size} bytes, type: {mime_type})")
+        logger.info(f"Serving file: {file_path} (size: {file_size} bytes, type: {mime_type})")
         
         # Return the file for download
         return send_file(
@@ -91,8 +88,8 @@ def download_file(job_id, data=None, filename=None):
         )
         
     except Exception as e:
-        logger.error(f"Job {job_id}: Error downloading file: {str(e)}")
-        return {"error": f"Download failed: {str(e)}"}, "/v1/storage/download", 500
+        logger.error(f"Error downloading file: {str(e)}")
+        return jsonify({"error": f"Download failed: {str(e)}"}), 500
 
 @v1_storage_download_bp.route('/v1/storage/list', methods=['GET'])
 @authenticate
