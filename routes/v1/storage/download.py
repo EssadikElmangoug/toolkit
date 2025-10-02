@@ -26,10 +26,9 @@ v1_storage_download_bp = Blueprint('v1_storage_download', __name__)
 logger = logging.getLogger(__name__)
 
 @v1_storage_download_bp.route('/v1/storage/download/<path:filename>', methods=['GET'])
-@authenticate
 def download_file(filename):
     """
-    Download a file from local storage with API authentication.
+    Download a file from local storage (public endpoint, no authentication required).
     
     Args:
         filename (str): The filename to download (URL decoded)
